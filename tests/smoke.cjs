@@ -1,6 +1,9 @@
 /* executar: node tests/smoke.cjs */
 const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
-const root=path.join(__dirname,'..');let sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'js/data.js'),'utf8'),sandbox);let d=sandbox.window.PORCARIA_FAULT_DATA,c=require('../js/core.js');
+const root=path.join(__dirname,'..');
+const appSource=fs.readFileSync(path.join(root,'js/app.js'),'utf8');
+assert.ok(appSource.includes("button('↓ Instalar aplicativo','install'"),'Botão de instalação precisa estar na página inicial');
+assert.ok(appSource.includes("case'install':requestAppInstallation()"),'Ação do botão de instalação precisa estar conectada');let sandbox={window:{}};vm.runInNewContext(fs.readFileSync(path.join(root,'js/data.js'),'utf8'),sandbox);let d=sandbox.window.PORCARIA_FAULT_DATA,c=require('../js/core.js');
 assert.equal(d.cases.length,72);assert.equal(d.manuals.length,22);assert(d.sources.length>=25);assert(d.catalog.length>=50);
 assert.equal(new Set(d.cases.map(x=>x.id)).size,72);
 for(const row of d.cases){assert(d.sources.some(s=>s.id===row.source),row.id+' missing source');assert(d.cases.filter(x=>x.anchor===row.anchor).length===3,'3 variants');assert(['input','output','network','speed','physical','calibrate'].includes(row.type));assert(d.items.some(i=>i.id===row.repairPart));assert(row.title&&row.root&&row.inspection&&row.electrical&&row.history);}
