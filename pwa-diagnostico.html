@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#11202a">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.webmanifest?revisao=pwa-20261012b">
+<title>Diagnóstico de instalação PWA</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b1822;color:#e5f1f4;font:15px/1.5 system-ui,Arial,sans-serif}main{max-width:650px;margin:0 auto;padding:22px 17px 50px}h1{font-size:27px;margin-bottom:5px}p{color:#b6cbd3}.card{padding:14px;border:1px solid #3b5360;border-radius:12px;margin:9px 0;background:#162b38}.ok{color:#86ecb3}.bad{color:#ffb5a6}.waiting{color:#f4d48d}b{display:block}small{word-break:break-all}button,a.action{margin:8px 5px 4px 0;display:inline-block;padding:12px 16px;border:1px solid #82aec5;border-radius:10px;background:#25566a;color:#fff;text-decoration:none;font:inherit}button:disabled{opacity:.5}pre{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#111d28;border-radius:8px}
+</style>
+</head>
+<body><main>
+<h1>Diagnóstico PWA</h1><p>Verificação local. Não apaga saves nem envia dados para fora do navegador.</p>
+<div id="status">Verificando manifesto, ícones e Service Worker…</div>
+<button id="retry">Verificar novamente</button><button id="copy">Copiar relatório</button>
+<button id="install" disabled>Instalar aplicativo</button>
+<a class="action" href="./index.html?revisao=pwa-20261012b">Abrir jogo atualizado</a>
+<pre id="log"></pre>
+<p>Se todos os itens estiverem OK mas o Chrome só oferecer “Criar atalho”, envie uma captura desta tela. A instalação pode estar bloqueada por estado antigo do Chrome ou por critérios do dispositivo.</p>
+<script>
+const out=document.getElementById('status'),log=document.getElementById('log'),report=[];
+let pendingInstall=null;
+function put(name,ok,detail){report.push({item:name,status:ok===true?'OK':ok===false?'FALHA':'OBSERVAÇÃO',detalhe:String(detail||'')});out.innerHTML=report.map(x=>'<div class="card"><b class="'+(x.status==='OK'?'ok':x.status==='FALHA'?'bad':'waiting')+'">'+x.status+' — '+x.item+'</b><small>'+x.detalhe.replaceAll('&','&amp;').replaceAll('<','&lt;')+'</small></div>').join('');log.textContent=JSON.stringify(report,null,2);}
+function imgCheck(src,width,height){return new Promise(resolve=>{const img=new Image();img.onload=()=>resolve({ok:img.naturalWidth===width&&img.naturalHeight===height,found:img.naturalWidth+'x'+img.naturalHeight});img.onerror=()=>resolve({ok:false,found:'imagem não carregou'});img.src=src;});}
+async function run(){report.length=0;put('HTTPS',location.protocol==='https:',location.origin);put('Executando como app',null,matchMedia('(display-mode: standalone)').matches?'Sim':'Não (esta janela é do navegador)');let manifest;
+try{const url=new URL('./manifest.webmanifest?diagnostico='+Date.now(),location.href);const response=await fetch(url,{cache:'no-store'});put('Manifesto responde',response.ok,response.status+' · '+response.headers.get('content-type'));manifest=await response.json();put('ID exclusivo',manifest.id===new URL('./',location.href).pathname,manifest.id);put('Início e escopo',!!manifest.start_url&&!!manifest.scope&&manifest.display==='standalone',manifest.start_url+' · '+manifest.scope+' · '+manifest.display);
+const icons=manifest.icons||[];for(const size of [192,512]){const icon=icons.find(i=>i.sizes&&i.sizes.includes(size+'x'+size));if(!icon){put('Ícone '+size,false,'não declarado');continue;}const src=new URL(icon.src,url).href;const check=await imgCheck(src,size,size);put('Ícone '+size,check.ok,check.found+' · '+src);}
+}catch(e){put('Manifesto',false,e.message);}
+try{const r=await navigator.serviceWorker?.getRegistration('./');put('Service Worker',!!r?.active,r?.active?.scriptURL||'não encontrado');put('Página controlada',!!navigator.serviceWorker?.controller,navigator.serviceWorker?.controller?.scriptURL||'ainda não está controlada; recarregue após alguns segundos');}catch(e){put('Service Worker',false,e.message);}
+put('Solicitação nativa de instalação',pendingInstall?true:null,pendingInstall?'disponível':'ainda não oferecida pelo Chrome; pode depender de instalação anterior e engajamento');
+}
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();pendingInstall=e;document.getElementById('install').disabled=false;run();});
+document.getElementById('install').onclick=async()=>{if(!pendingInstall)return;await pendingInstall.prompt();pendingInstall=null;document.getElementById('install').disabled=true;};
+document.getElementById('retry').onclick=run;
+document.getElementById('copy').onclick=async()=>{try{await navigator.clipboard.writeText(log.textContent);alert('Relatório copiado.');}catch(e){alert('Selecione o relatório abaixo para copiar.');}};
+run();
+</script>
+</main></body></html>
